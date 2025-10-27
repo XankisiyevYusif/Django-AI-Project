@@ -1,0 +1,42 @@
+<h2>Dashboard</h2>
+<ul>
+    <li>Total products : {{ kpi.products }}</li>
+    <li>Total stock : {{ kpi.total_qty }}</li>
+    <li>Average price : {{ kpi.avg_price }}</li>
+</ul>
+
+<h3>Top Categories (Income)</h3>
+<table border="1" cellpadding="6">
+    <tr>
+        <th>
+            Category
+        </th>
+        <th>
+            Income
+        </th>
+        <th>
+            Product Count
+        </th>
+    </tr>
+
+    {% for c in top_cats %}
+        <tr>
+        <td>
+            {{ c.category }}
+        </td>
+        <td>
+            {{ c.revenue }}
+        </td>
+        <td>
+            {{ c.items }}
+        </td>
+        </tr>
+    {% endfor %}
+
+</table>
+
+<p>
+    <a href="{% url 'product_list' %}">Products</a>
+    <a href="{% url 'product_upload' %}">Upload</a>
+    <a>Statistics</a>
+</p>
