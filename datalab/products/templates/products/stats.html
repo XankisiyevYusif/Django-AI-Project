@@ -1,10 +1,141 @@
-<!DOCTYPE html>
-<html lang="en">
+{% load static %}
+<html>
 <head>
-  <meta charset="UTF-8">
-  <title>$Title$</title>
+  <meta charset="utf-8">
+  <title>Statistika</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    table { border-collapse: collapse; width: 100%; margin-bottom: 8px; }
+    th, td { padding: 6px; }
+    .chart-container { width: 100%; max-width: 900px; margin: 12px 0 36px; }
+  </style>
 </head>
 <body>
-$END$
+
+<h2>Statistika</h2>
+
+{{ monthly|json_script:"monthly-data" }}
+{{ quarterly|json_script:"quarterly-data" }}
+{{ by_cat|json_script:"bycat-data" }}
+{{ top_sku|json_script:"topsku-data" }}
+{{ low_stock|json_script:"lowstock-data" }}
+
+<h3>1) Aylıq gəlir</h3>
+<table border="1" cellpadding="6">
+<tr><th>Ay</th><th>Gəlir</th><th>Items</th></tr>
+{% for r in monthly %}
+<tr><td>{{ r.month|date:"Y-m" }}</td><td>{{ r.revenue }}</td><td>{{ r.items }}</td></tr>
+{% endfor %}
+</table>
+<div class="chart-container"><canvas id="monthlyChart"></canvas></div>
+
+<h3>2) Rüb üzrə gəlir</h3>
+<table border="1" cellpadding="6">
+<tr><th>Rüb</th><th>Gəlir</th><th>Orta qiymət</th></tr>
+{% for r in quarterly %}
+<tr><td>Q{{ r.q }}</td><td>{{ r.revenue }}</td><td>{{ r.avg_price }}</td></tr>
+{% endfor %}
+</table>
+<div class="chart-container"><canvas id="quarterlyChart"></canvas></div>
+
+<h3>3) Kateqoriya üzrə</h3>
+<table border="1" cellpadding="6">
+<tr><th>Kateqoriya</th><th>Orta qiymət</th><th>Toplam stok</th></tr>
+{% for r in by_cat %}
+<tr><td>{{ r.category }}</td><td>{{ r.mean_price }}</td><td>{{ r.total_qty }}</td></tr>
+{% endfor %}
+</table>
+<div class="chart-container"><canvas id="byCatChart"></canvas></div>
+
+<h3>4) TOP SKU (Gəlir)</h3>
+<table border="1" cellpadding="6">
+<tr><th>SKU</th><th>Ad</th><th>Kateqoriya</th><th>Gəlir</th><th>Stok</th></tr>
+{% for r in top_sku %}
+<tr><td>{{ r.sku }}</td><td>{{ r.name }}</td><td>{{ r.category }}</td><td>{{ r.revenue }}</td><td>{{ r.qty }}</td></tr>
+{% endfor %}
+</table>
+<div class="chart-container"><canvas id="topSkuChart"></canvas></div>
+
+<h3>5) Low Stock (≤5)</h3>
+<table border="1" cellpadding="6">
+<tr><th>SKU</th><th>Ad</th><th>Say</th></tr>
+{% for p in low_stock %}
+<tr><td>{{ p.sku }}</td><td>{{ p.name }}</td><td>{{ p.quantity }}</td></tr>
+{% endfor %}
+</table>
+<div class="chart-container"><canvas id="lowStockChart"></canvas></div>
+
+<p><a href="{% url 'product_list' %}">Məhsullar</a></p>
+
+<script>
+const monthly = JSON.parse(document.getElementById('monthly-data').textContent || '[]');
+const quarterly = JSON.parse(document.getElementById('quarterly-data').textContent || '[]');
+const byCat = JSON.parse(document.getElementById('bycat-data').textContent || '[]');
+const topSku = JSON.parse(document.getElementById('topsku-data').textContent || '[]');
+const lowStock = JSON.parse(document.getElementById('lowstock-data').textContent || '[]');
+
+function fmtMonth(dateStr){
+    if(!dateStr) return '';
+    const d = new Date(dateStr);
+    if (isNaN(d)) return dateStr;
+    return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,'0');
+}
+
+(function(){
+    const labels = monthly.map(m => fmtMonth(m.month));
+    const data = monthly.map(m => Number(m.revenue || 0));
+    const ctx = document.getElementById('monthlyChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'line',
+        data: { labels, datasets: [{ label: 'Gəlir', data, fill: false, tension: 0.3 }] },
+        options: { responsive: true, plugins: { legend: { display: true } } }
+    });
+})();
+
+(function(){
+    const labels = quarterly.map(q => 'Q' + q.q);
+    const data = quarterly.map(q => Number(q.revenue || 0));
+    const ctx = document.getElementById('quarterlyChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'bar',
+        data: { labels, datasets: [{ label: 'Gəlir', data }] },
+        options: { responsive: true }
+    });
+})();
+
+(function(){
+    const labels = byCat.map(c => c.category || 'Unknown');
+    const data = byCat.map(c => Number(c.total_qty || 0));
+    const ctx = document.getElementById('byCatChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'bar',
+        data: { labels, datasets: [{ label: 'Toplam stok', data }] },
+        options: { responsive: true }
+    });
+})();
+
+(function(){
+    const labels = topSku.map(s => (s.sku || '') + (s.name ? ' — '+s.name : ''));
+    const data = topSku.map(s => Number(s.revenue || 0));
+    const ctx = document.getElementById('topSkuChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'bar',
+        data: { labels, datasets: [{ label: 'Gəlir', data }] },
+        options: { indexAxis: 'y', responsive: true }
+    });
+})();
+
+(function(){
+    const labels = lowStock.map(l => (l.sku || '') + (l.name ? ' — '+l.name : ''));
+    const data = lowStock.map(l => Number(l.quantity || 0));
+    const ctx = document.getElementById('lowStockChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'bar',
+        data: { labels, datasets: [{ label: 'Say', data }] },
+        options: { indexAxis: 'y', responsive: true, scales: { x: { beginAtZero: true } } }
+    });
+})();
+</script>
+
 </body>
 </html>
